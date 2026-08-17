@@ -1,0 +1,583 @@
+{
+  "teams": [
+    {
+      "id": "class-578515429",
+      "name": "فصل 1",
+      "color": "#3B82F6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 578515429,
+      "slot": 1,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-57736488",
+      "name": "فصل 2",
+      "color": "#EF4444",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 57736488,
+      "slot": 2,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-524995568",
+      "name": "فصل 3",
+      "color": "#22C55E",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 524995568,
+      "slot": 3,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-197545611",
+      "name": "فصل 4",
+      "color": "#8B5CF6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 197545611,
+      "slot": 4,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-1781972768",
+      "name": "فصل 5",
+      "color": "#F97316",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1781972768,
+      "slot": 5,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-1879273817",
+      "name": "فصل 6",
+      "color": "#06B6D4",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1879273817,
+      "slot": 6,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-2129206113",
+      "name": "فصل 7",
+      "color": "#14B8A6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 2129206113,
+      "slot": 7,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-1178703842",
+      "name": "فصل 8",
+      "color": "#D97706",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1178703842,
+      "slot": 8,
+      "version": 1,
+      "displayVersion": 1
+    },
+    {
+      "id": "class-721238432",
+      "name": "فصل 9",
+      "color": "#3B82F6",
+      "points": 100,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 2,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 721238432,
+      "slot": 9,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-371691191",
+      "name": "فصل 10",
+      "color": "#EF4444",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 371691191,
+      "slot": 10,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-684789799",
+      "name": "فصل 11",
+      "color": "#22C55E",
+      "points": 115,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 4,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 684789799,
+      "slot": 11,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-769697598",
+      "name": "فصل 12",
+      "color": "#8B5CF6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 769697598,
+      "slot": 12,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-1516386522",
+      "name": "فصل 13",
+      "color": "#F97316",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 2.98,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1516386522,
+      "slot": 13,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-1136958442",
+      "name": "فصل 14",
+      "color": "#06B6D4",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1136958442,
+      "slot": 14,
+      "version": 2,
+      "displayVersion": 2
+    },
+    {
+      "id": "class-1091307710",
+      "name": "فصل 15",
+      "color": "#3B82F6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1091307710,
+      "slot": 15,
+      "version": 3,
+      "displayVersion": 3
+    },
+    {
+      "id": "class-242126059",
+      "name": "فصل 16",
+      "color": "#EF4444",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 242126059,
+      "slot": 16,
+      "version": 3,
+      "displayVersion": 3
+    },
+    {
+      "id": "class-1377299295",
+      "name": "فصل 17",
+      "color": "#22C55E",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1377299295,
+      "slot": 17,
+      "version": 3,
+      "displayVersion": 3
+    },
+    {
+      "id": "class-851344193",
+      "name": "فصل 18",
+      "color": "#8B5CF6",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 851344193,
+      "slot": 18,
+      "version": 3,
+      "displayVersion": 3
+    },
+    {
+      "id": "class-1502391285",
+      "name": "فصل 19",
+      "color": "#F97316",
+      "points": 0,
+      "roundPoints": 0,
+      "coins": 0,
+      "position": 0,
+      "movesToday": 0,
+      "dailyDate": "Mon Aug 17 2026",
+      "doublePoints": false,
+      "doublePointsDate": "",
+      "visitedIslands": [
+        0
+      ],
+      "createdAt": "2026-08-17T18:13:20.380Z",
+      "sheetId": 1502391285,
+      "slot": 19,
+      "version": 3,
+      "displayVersion": 3
+    }
+  ],
+  "tiles": [
+    {
+      "id": 0,
+      "type": "normal"
+    },
+    {
+      "id": 1,
+      "type": "normal"
+    },
+    {
+      "id": 2,
+      "type": "normal"
+    },
+    {
+      "id": 3,
+      "type": "normal"
+    },
+    {
+      "id": 4,
+      "type": "surprise",
+      "surpriseMessage": "ايس كريم للفصل كامل"
+    },
+    {
+      "id": 5,
+      "type": "normal"
+    },
+    {
+      "id": 6,
+      "type": "normal"
+    },
+    {
+      "id": 7,
+      "type": "normal"
+    },
+    {
+      "id": 8,
+      "type": "normal"
+    },
+    {
+      "id": 9,
+      "type": "normal"
+    },
+    {
+      "id": 10,
+      "type": "normal"
+    },
+    {
+      "id": 11,
+      "type": "normal"
+    },
+    {
+      "id": 12,
+      "type": "normal"
+    },
+    {
+      "id": 13,
+      "type": "normal"
+    },
+    {
+      "id": 14,
+      "type": "normal"
+    },
+    {
+      "id": 15,
+      "type": "normal"
+    },
+    {
+      "id": 16,
+      "type": "normal"
+    },
+    {
+      "id": 17,
+      "type": "normal"
+    },
+    {
+      "id": 18,
+      "type": "normal"
+    },
+    {
+      "id": 19,
+      "type": "normal"
+    },
+    {
+      "id": 20,
+      "type": "normal"
+    },
+    {
+      "id": 21,
+      "type": "normal"
+    },
+    {
+      "id": 22,
+      "type": "normal"
+    },
+    {
+      "id": 23,
+      "type": "normal"
+    },
+    {
+      "id": 24,
+      "type": "normal"
+    },
+    {
+      "id": 25,
+      "type": "normal"
+    },
+    {
+      "id": 26,
+      "type": "normal"
+    },
+    {
+      "id": 27,
+      "type": "normal"
+    },
+    {
+      "id": 28,
+      "type": "normal"
+    },
+    {
+      "id": 29,
+      "type": "normal"
+    }
+  ],
+  "events": [
+    {
+      "text": "🔄 تم إعادة ضبط اللعبة مع الاحتفاظ بالفصول",
+      "time": "٩:١٣:٢٠ م",
+      "ts": 1786990400380
+    },
+    {
+      "text": "➕ إضافة 90 نقطة للفصل \"فصل 3\"",
+      "time": "٩:٢٦:٢٧ م",
+      "ts": 1786991187864
+    },
+    {
+      "text": "➕ إضافة -60 نقطة للفصل \"فصل 1\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251689
+    },
+    {
+      "text": "➕ إضافة -90 نقطة للفصل \"فصل 3\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251690
+    },
+    {
+      "text": "➕ إضافة -70 نقطة للفصل \"فصل 4\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251690
+    },
+    {
+      "text": "➕ إضافة -40 نقطة للفصل \"فصل 7\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251691
+    },
+    {
+      "text": "➕ إضافة -100 نقطة للفصل \"فصل 8\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251694
+    },
+    {
+      "text": "➕ إضافة -70 نقطة للفصل \"فصل 12\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251695
+    },
+    {
+      "text": "➕ إضافة -100 نقطة للفصل \"فصل 17\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251695
+    },
+    {
+      "text": "➕ إضافة -70 نقطة للفصل \"فصل 18\"",
+      "time": "٩:٢٧:٣١ م",
+      "ts": 1786991251697
+    },
+    {
+      "text": "🚢 تم تحريك السفن إلى المواضع الجديدة",
+      "time": "١١:١٦:٣٧ م",
+      "ts": 1786997797000
+    }
+  ]
+}
