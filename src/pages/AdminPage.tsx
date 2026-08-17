@@ -1157,7 +1157,7 @@ export default function AdminPage() {
       if (result?.status === "error") {
         throw new Error(result.message || "تعذر حفظ البنود");
       }
-      const saved = Array.isArray(result?.items)
+      const saved: RegItem[] = Array.isArray(result?.items)
         ? result.items.map(normalizeRegItem).filter((item: RegItem) => item.label.trim() !== "")
         : clean;
       setRegItems(saved);
@@ -2749,10 +2749,6 @@ export default function AdminPage() {
                                 setTilawaPickerOpen(false);
                                 setTilawaFromAyah("");
                                 setTilawaToAyah("");
-                                setMemPts(null);
-                                setRevPts(null);
-                                setHifzRange(emptySurahRange());
-                                setMuraRange(emptySurahRange());
                               }
                             }}
                             style={{
