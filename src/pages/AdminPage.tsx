@@ -38,7 +38,7 @@ interface LastAction {
   deltaPoints?: number;
   /** True when this is only a re-show of an old registration. */
   displayOnly?: boolean;
-  /** نسخة العرض (1/2/3) حتى يظهر الإعلان على جهاز DisplayPage المطابق فقط. */
+  /** نسخة العرض ثابتة حالياً على النسخة الوحيدة. */
   version?: number;
   studentName: string;
   createdAt: number;
@@ -98,12 +98,11 @@ interface SchoolClass {
   className: string;
   sheetId: number;
   slot: number;
-  version: 1 | 2 | 3;
-  displayVersion: 1 | 2 | 3;
+  version: 1;
+  displayVersion: 1;
   students: string[];
 }
 
-type ClassFilter = "all" | 1 | 2 | 3;
 
 type FirstCircleTrack = "nurania" | "tilawa" | "hifz-review" | null;
 type FirstCircleScore = number | "absent" | null;
@@ -158,21 +157,11 @@ const CLASS_COLOR_PALETTE = [
   "#D97706", // ذهبي غامق
 ] as const;
 
-function classColorBySlot(slot?: number, version?: number): string {
+function classColorBySlot(slot?: number, _version?: number): string {
   const safeSlot = Number(slot || 0);
-  const safeVersion = Number(version || 0);
-  const startSlot = safeVersion === 2 ? 9 : safeVersion === 3 ? 15 : 1;
-  const localIndex = Math.max(0, safeSlot - startSlot);
-  return CLASS_COLOR_PALETTE[localIndex % CLASS_COLOR_PALETTE.length];
+  const localIndex = Math.max(0, safeSlot - 1);
+  return CLASS_COLOR_PALETTE[localIndex % 5];
 }
-
-// ألوان الفلاتر والتبويبات حسب النسخة — للمسات الجمالية فقط.
-const VERSION_ACCENT: Record<string, string> = {
-  all: "#38bdf8",
-  "1": "#38bdf8",
-  "2": "#a78bfa",
-  "3": "#fbbf24",
-};
 const DISPLAY_EVENT_STORAGE_KEY = "sailor-race:display-event";
 const DISPLAY_EVENT_CHANNEL = "sailor-race-display-events";
 
@@ -344,9 +333,9 @@ function normalizeSchoolClasses(payload: any): SchoolClass[] {
       const className = String(item?.className || item?.name || "").trim();
       const sheetId = Number(item?.sheetId);
       const slot = Number(item?.slot);
-      const version = Number(item?.version ?? item?.displayVersion);
       if (!classId || !className || !Number.isFinite(sheetId) || !Number.isFinite(slot)) return null;
-      if (![1, 2, 3].includes(version)) return null;
+      // النظام الحالي ثابت على خمسة فصول فقط وفي نسخة عرض واحدة.
+      if (slot < 1 || slot > 5) return null;
       if (seen.has(classId)) return null;
       seen.add(classId);
 
@@ -365,8 +354,8 @@ function normalizeSchoolClasses(payload: any): SchoolClass[] {
         className,
         sheetId,
         slot,
-        version: version as 1 | 2 | 3,
-        displayVersion: version as 1 | 2 | 3,
+        version: 1,
+        displayVersion: 1,
         students,
       };
     })
@@ -577,8 +566,20 @@ const REG_ITEMS_TYPE_LABELS: Record<RegItemType, string> = {
   yesno: "✅ نعم / لا",
   range: "📖 سورة من وإلى",
 };
-// بند «سورة من وإلى» نقاطه من خيارات محددة فقط (مثل الحفظ والمراجعة).
-const REG_ITEMS_RANGE_POINTS_OPTIONS = [30, 25, 20];
+// خيارات تقييم بند «سورة من وإلى» تُشتق من النقاط القصوى التي تحددها الإدارة.
+// 30 تبقى 30/25/20 كما في النظام السابق، وأي رقم آخر يحصل على 3 درجات متناسبة.
+function regItemRangePointsOptions(maxPoints: number): number[] {
+  const max = Math.max(0, Math.round(safeNumber(maxPoints)));
+  if (max <= 0) return [0];
+  if (max === 30) return [30, 25, 20];
+  return Array.from(
+    new Set([
+      max,
+      Math.max(1, Math.round((max * 5) / 6)),
+      Math.max(1, Math.round((max * 2) / 3)),
+    ]),
+  ).sort((a, b) => b - a);
+}
 
 function normalizeRegItem(item: any): RegItem {
   return {
@@ -632,13 +633,11 @@ const emptyRegItemValue = (): RegItemValue => ({
   score: null,
 });
 
-// النقاط الفعلية لبند «سورة من وإلى»: إن اختار المعلم 30/25/20 نستخدمها،
-// وإلا نقاط البند الافتراضية (ولو كانت خارج الخيارات نرجع لأول خيار).
+// النقاط الفعلية لبند «سورة من وإلى»: التقييم المختار، وإلا نقاط البند الرسمية.
 function regItemRangeScore(item: RegItem, value?: RegItemValue): number {
   const chosen = value?.score;
-  if (typeof chosen === "number" && Number.isFinite(chosen) && chosen > 0) return chosen;
-  if (REG_ITEMS_RANGE_POINTS_OPTIONS.includes(item.points)) return item.points;
-  return REG_ITEMS_RANGE_POINTS_OPTIONS[0];
+  if (typeof chosen === "number" && Number.isFinite(chosen) && chosen >= 0) return chosen;
+  return Math.max(0, safeNumber(item.points));
 }
 
 // نقاط البند حسب قيمته الحالية.
@@ -809,6 +808,7 @@ export default function AdminPage() {
   const [selectedTeam, setSelected] = useState<string>("");
   // بنود التسجيل الديناميكية وقيمها في النموذج الحالي.
   const [regItems, setRegItems] = useState<RegItem[]>(DEFAULT_REG_ITEMS);
+  const regItemsFingerprintRef = useRef<string>("");
   const [itemValues, setItemValues] = useState<Record<string, RegItemValue>>({});
 
   // ── مسارات حلقة أولى ───────────────────────────────────────────────
@@ -845,7 +845,6 @@ export default function AdminPage() {
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState("");
   const [studentsReloadKey, setStudentsReloadKey] = useState(0);
-  const [classFilter, setClassFilter] = useState<ClassFilter>("all");
   // ── إعدادات بنود التسجيل ───────────────────────────────────────────
   const [showItemsSettings, setShowItemsSettings] = useState(false);
   const [itemsDraft, setItemsDraft] = useState<RegItem[]>([]);
@@ -874,19 +873,12 @@ export default function AdminPage() {
   const classById = new Map(schoolClasses.map((schoolClass) => [schoolClass.classId, schoolClass]));
   const getTeamName = (teamId: string, fallback = "") =>
     classById.get(teamId)?.className || LEGACY_TEAM_NAMES[teamId] || fallback || teamId;
-  const visibleClassTeams = classTeams.filter((team) =>
-    classFilter === "all" ? true : team.version === classFilter,
-  );
+  const visibleClassTeams = classTeams;
   const accentColor = classTeams.find((t) => t.id === selectedTeam)?.color || "#6366f1";
-  // الترتيب الحالي في AdminPage يعرض متصدرًا واحدًا فقط من كل نسخة (3 فصول إجمالاً).
-  const ranked = ([1, 2, 3] as const)
-    .map((version) =>
-      [...classTeams]
-        .filter((team) => team.version === version)
-        .sort((a, b) => getTeamLocationPoints(b) - getTeamLocationPoints(a))[0],
-    )
-    .filter((team): team is Team => Boolean(team))
-    .sort((a, b) => getTeamLocationPoints(b) - getTeamLocationPoints(a));
+  // نسخة واحدة: نعرض أفضل ثلاثة فصول من الفصول الخمسة.
+  const ranked = [...classTeams]
+    .sort((a, b) => getTeamLocationPoints(b) - getTeamLocationPoints(a))
+    .slice(0, 3);
 
   // بنود «سورة من وإلى»: يمنع التسجيل إذا اختار طرفاً واحداً فقط.
   const incompleteRangeItems = regItems.filter(
@@ -974,15 +966,24 @@ export default function AdminPage() {
     // بنود التسجيل: نعرض المحفوظة فوراً ثم نحدّث من Script Properties في الخلفية،
     // حتى تظهر البنود الجديدة التي عدّلها أي معلم على جميع الأجهزة.
     const cachedRegItems = readCachedRegItems();
-    if (cachedRegItems.length) setRegItems(cachedRegItems);
+    if (cachedRegItems.length) {
+      setRegItems(cachedRegItems);
+      regItemsFingerprintRef.current = JSON.stringify(cachedRegItems);
+    }
     const applyRegItems = (res: any) => {
       if (!active) return;
       if (res?.status === "ok" && Array.isArray(res.items) && res.items.length) {
         const items = res.items
           .map(normalizeRegItem)
           .filter((item: RegItem) => item.label.trim() !== "");
+        const fingerprint = JSON.stringify(items);
+        if (fingerprint === regItemsFingerprintRef.current) return;
+        regItemsFingerprintRef.current = fingerprint;
         setRegItems(items);
         writeCachedRegItems(items);
+        // إذا تغيّرت البنود الرسمية أثناء تسجيل مفتوح، نمسح اختيارات النموذج القديمة
+        // حتى لا يُسجّل أي معلم بقيم تابعة لبنود تم تعديلها أو حذفها.
+        setItemValues({});
       }
     };
     callAppsScriptJsonp(APPS_SCRIPT_URL, "getRegItems", {}, 20000)
@@ -991,13 +992,13 @@ export default function AdminPage() {
         // يبقى الكاش المحلي معروضاً حتى ينجح الاتصال.
       });
 
-    // تحديث دوري خفيف للبنود حتى تصل التغييرات إلى كل الأجهزة
-    // حتى لو لم تُعد فتح الصفحة أو لم يعد التركيز للنافذة.
+    // فحص سريع للبنود الرسمية حتى تصل تغييرات الإدارة لكل الأجهزة المفتوحة خلال ثوانٍ،
+    // حتى لو لم يُعد المعلم فتح الصفحة أو تغيير التركيز للنافذة.
     const itemsTimer = window.setInterval(() => {
       callAppsScriptJsonp(APPS_SCRIPT_URL, "getRegItems", {}, 20000)
         .then(applyRegItems)
         .catch(() => {});
-    }, 90000);
+    }, 5000);
 
     const applyClasses = (classes: SchoolClass[]) => {
       setSchoolClasses(classes);
@@ -1160,6 +1161,7 @@ export default function AdminPage() {
       const saved: RegItem[] = Array.isArray(result?.items)
         ? result.items.map(normalizeRegItem).filter((item: RegItem) => item.label.trim() !== "")
         : clean;
+      regItemsFingerprintRef.current = JSON.stringify(saved);
       setRegItems(saved);
       writeCachedRegItems(saved);
       setItemsDraft(saved.map((item) => ({ ...item })));
@@ -1760,7 +1762,7 @@ export default function AdminPage() {
       {/* ── Header ── */}
       <div style={S.header}>
         <span style={{ fontSize: 22 }}>⚓</span>
-        <span>ربيع القلوب</span>
+        <span>مدارس الأندلس</span>
         <div style={{ marginRight: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={() => setSyncSheet((p) => !p)}
@@ -1942,7 +1944,7 @@ export default function AdminPage() {
                 lineHeight: 1.7,
               }}
             >
-              حدّد بنود التسجيل ونقاطها — ستتزامن فوراً على جميع أجهزة المعلمين.
+              حدّد بنود التسجيل ونقاطها — تصبح رسمية وتتزامن على جميع أجهزة المعلمين خلال ثوانٍ.
               <br />النوع: «➕ إضافة نقاط» مثل الحضور، «✅ نعم/لا» مثل الحقيبة،
               «📖 سورة من وإلى» مثل الحفظ.
             </div>
@@ -1974,47 +1976,27 @@ export default function AdminPage() {
                       placeholder="اسم البند (مثال: الحضور)"
                       style={{ ...S.input, marginBottom: 0, flex: 1, fontSize: 14, padding: "10px 12px" }}
                     />
-                    {item.type === "range" ? (
-                      <select
-                        value={
-                          REG_ITEMS_RANGE_POINTS_OPTIONS.includes(item.points)
-                            ? item.points
-                            : REG_ITEMS_RANGE_POINTS_OPTIONS[0]
-                        }
-                        onChange={(e) =>
-                          updateItemDraft(index, { points: Number(e.target.value) || 30 })
-                        }
-                        title="نقاط البند (سورة من وإلى: 30 / 25 / 20)"
-                        style={{
-                          ...S.input,
-                          marginBottom: 0,
-                          width: 74,
-                          fontSize: 14,
-                          padding: "10px 4px",
-                          textAlign: "center",
-                          cursor: "pointer",
-                          fontFamily: "'Tajawal',sans-serif",
-                        }}
-                      >
-                        {REG_ITEMS_RANGE_POINTS_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.points}
-                        onChange={(e) =>
-                          updateItemDraft(index, { points: Math.max(0, Number(e.target.value) || 0) })
-                        }
-                        placeholder="النقاط"
-                        title="عدد النقاط لهذا البند"
-                        style={{ ...S.input, marginBottom: 0, width: 74, fontSize: 14, padding: "10px 8px", textAlign: "center" }}
-                      />
-                    )}
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(item.points)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/[^0-9]/g, "");
+                        updateItemDraft(index, { points: digits === "" ? 0 : Number(digits) });
+                      }}
+                      placeholder="النقاط"
+                      title="اكتب أي عدد نقاط لهذا البند"
+                      style={{
+                        ...S.input,
+                        marginBottom: 0,
+                        width: 86,
+                        fontSize: 14,
+                        padding: "10px 8px",
+                        textAlign: "center",
+                      }}
+                    />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {(["points", "yesno", "range"] as const).map((type) => (
@@ -2025,11 +2007,7 @@ export default function AdminPage() {
                         onClick={() =>
                           updateItemDraft(index, {
                             type,
-                            points:
-                              type === "range" &&
-                              !REG_ITEMS_RANGE_POINTS_OPTIONS.includes(item.points)
-                                ? REG_ITEMS_RANGE_POINTS_OPTIONS[0]
-                                : item.points,
+                            points: item.points,
                           })
                         }
                         style={{
@@ -2271,7 +2249,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   سيتم مسح <span style={{ color: "#fbbf24", fontWeight: 700 }}>كل الأيام</span> بضغطة واحدة:
-                  <br />🔢 نقاط الفصول الـ19 ← صفر
+                  <br />🔢 نقاط الفصول الخمسة ← صفر
                   <br />📊 قاعدة البيانات والتقارير ← ممسوحة
                   <br />
                   <span style={{ color: "#f87171", fontWeight: 700 }}>أسماء الطلاب في أوراق الفصول لن تُحذف.</span>
@@ -2489,106 +2467,6 @@ export default function AdminPage() {
           >
             ⚡ سريع
           </button>
-        </div>
-
-        {/* ── Class Version Filter ── */}
-        <label style={{ ...S.label, marginBottom: 7 }}>عرض الفصول</label>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 4,
-            padding: 4,
-            marginBottom: 18,
-            borderRadius: 17,
-            background: "rgba(7,15,30,0.56)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.035), 0 8px 24px rgba(0,0,0,0.12)",
-            backdropFilter: "blur(10px)",
-          }}
-        >
-          {([
-            { id: "all" as const, label: "الكل", count: 19 },
-            { id: 1 as const, label: "نسخة 1", count: 8 },
-            { id: 2 as const, label: "نسخة 2", count: 6 },
-            { id: 3 as const, label: "نسخة 3", count: 5 },
-          ]).map((filter) => {
-            const active = classFilter === filter.id;
-            const activeColor = VERSION_ACCENT[String(filter.id)] || "#38bdf8";
-            return (
-              <button
-                key={String(filter.id)}
-                type="button"
-                className="smooth-btn"
-                onClick={() => {
-                  setClassFilter(filter.id);
-                  if (selectedTeam) {
-                    const selectedClass = classById.get(selectedTeam);
-                    if (filter.id !== "all" && selectedClass?.version !== filter.id) {
-                      setSelected("");
-                    }
-                  }
-                }}
-                style={{
-                  minHeight: 50,
-                  padding: "7px 5px",
-                  borderRadius: 14,
-                  border: "none",
-                  outline: "none",
-                  background: active
-                    ? `linear-gradient(180deg, ${activeColor}, ${activeColor}cc)`
-                    : "rgba(255,255,255,0.085)",
-                  color: active ? "#fff" : "rgba(226,232,240,0.78)",
-                  fontFamily: "'Tajawal',sans-serif",
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 3,
-                  transform: active ? "translateY(-2px)" : "translateY(0)",
-                  boxShadow: active
-                    ? `0 7px 0 ${activeColor}88, inset 0 2px 0 rgba(255,255,255,0.35), inset 0 -3px 0 rgba(0,0,0,0.12)`
-                    : "none",
-                  transition: "background 180ms ease, color 180ms ease, transform 180ms ease, box-shadow 180ms ease",
-                  WebkitTapHighlightColor: "transparent",
-                }}
-                aria-pressed={active}
-              >
-                <span
-                  style={{
-                    fontSize: 11.5,
-                    fontWeight: 900,
-                    lineHeight: 1.15,
-                    whiteSpace: "nowrap",
-                    letterSpacing: "0.01em",
-                  }}
-                >
-                  {filter.label}
-                </span>
-                <span
-                  style={{
-                    minWidth: 22,
-                    height: 16,
-                    padding: "0 6px",
-                    borderRadius: 999,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: active ? "rgba(255,255,255,0.17)" : "rgba(255,255,255,0.055)",
-                    border: active ? "1px solid rgba(255,255,255,0.16)" : "1px solid rgba(255,255,255,0.045)",
-                    color: active ? "rgba(255,255,255,0.94)" : "rgba(203,213,225,0.48)",
-                    fontSize: 8.5,
-                    fontWeight: 800,
-                    lineHeight: 1,
-                    transition: "all 180ms ease",
-                  }}
-                >
-                  {filter.count}
-                </span>
-              </button>
-            );
-          })}
         </div>
 
         {/* ── Team Selection ── */}
@@ -3082,7 +2960,7 @@ export default function AdminPage() {
                         >
                           النقاط:
                         </span>
-                        {REG_ITEMS_RANGE_POINTS_OPTIONS.map((opt) => {
+                        {regItemRangePointsOptions(item.points).map((opt) => {
                           const selected = regItemRangeScore(item, v) === opt;
                           return (
                             <button

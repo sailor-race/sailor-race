@@ -2,7 +2,7 @@ import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import { v4 as uuidv4 } from "uuid";
 
-type DisplayVersion = 1 | 2 | 3;
+type DisplayVersion = 1;
 
 type TeamId = string;
 
@@ -21,7 +21,7 @@ interface Team {
   visitedIslands: number[];
   createdAt: string;
 
-  // بيانات الفصل الديناميكي القادمة من Google Apps Script.
+  // بيانات الفصل الديناميكي القادمة من Google Apps Script — خمسة فصول ونسخة واحدة.
   sheetId?: number;
   slot?: number;
   version?: DisplayVersion;
@@ -40,10 +40,20 @@ interface GameEvent {
   ts: number;
 }
 
+interface RegistrationItem {
+  id: string;
+  label: string;
+  type: "points" | "yesno" | "range";
+  points: number;
+}
+
 interface GameState {
   teams: Team[];
   tiles: Tile[];
   events: GameEvent[];
+  // البنود هنا قناة بث لحظية فقط؛ المصدر الرسمي الدائم هو Google Apps Script.
+  registrationItems?: RegistrationItem[];
+  registrationItemsUpdatedAt?: string;
 }
 
 interface ClassSyncItem {
@@ -58,6 +68,8 @@ interface ClassSyncItem {
   color?: string;
 }
 
+const ACTIVE_CLASS_COUNT = 5;
+
 const DEFAULT_CONSTANTS = {
   POINTS_PER_STEP: 1500,
   COINS_PER_STEP: 10,
@@ -70,10 +82,6 @@ const LEGACY_TEAM_IDS = new Set(["blue", "red", "green", "purple"]);
 
 function getToday() {
   return new Date().toDateString();
-}
-
-function isDisplayVersion(value: number): value is DisplayVersion {
-  return value === 1 || value === 2 || value === 3;
 }
 
 function colorFromId(id: string): string {
@@ -114,13 +122,13 @@ function createDynamicTeam(
 
 function normalizeSavedTeam(raw: any): Team | null {
   const id = String(raw?.id || "").trim();
-  if (!id || LEGACY_TEAM_IDS.has(id)) return null;
+  if (!id || LEGACY_TEAM_IDS.has(id) || !id.startsWith("class-")) return null;
 
   const name = String(raw?.name || id).trim() || id;
-  const versionNumber = Number(raw?.version ?? raw?.displayVersion);
-  const version = isDisplayVersion(versionNumber) ? versionNumber : undefined;
   const slotNumber = Number(raw?.slot);
   const sheetIdNumber = Number(raw?.sheetId);
+  if (!Number.isFinite(slotNumber) || slotNumber < 1 || slotNumber > ACTIVE_CLASS_COUNT) return null;
+  const version: DisplayVersion = 1;
 
   return {
     ...createDynamicTeam(id, name, {
@@ -178,6 +186,8 @@ async function loadState(): Promise<GameState> {
 
     const events = Array.isArray(saved?.events) ? saved.events : [];
 
+    // لا نستعيد بنود التسجيل من game.json حتى لا تصبح نسخة Render القديمة
+    // أسبق من Google Apps Script. الصفحة تقرأ البنود الرسمية من Google أولاً.
     return { teams, tiles, events };
   } catch (err) {
     console.error("Failed to read game.json; starting with a safe empty dynamic state:", err);
@@ -233,16 +243,16 @@ function parseClassSyncItem(item: ClassSyncItem) {
   const name = String(item?.className || item?.name || id).trim() || id;
   const sheetId = Number(item?.sheetId);
   const slot = Number(item?.slot);
-  const versionNumber = Number(item?.version ?? item?.displayVersion);
-  const version = isDisplayVersion(versionNumber) ? versionNumber : undefined;
+  if (!Number.isFinite(slot) || slot < 1 || slot > ACTIVE_CLASS_COUNT) return null;
   const color = String(item?.color || "").trim();
 
   return {
     id,
     name,
     ...(Number.isFinite(sheetId) ? { sheetId } : {}),
-    ...(Number.isFinite(slot) ? { slot } : {}),
-    ...(version ? { version, displayVersion: version } : {}),
+    slot,
+    version: 1 as DisplayVersion,
+    displayVersion: 1 as DisplayVersion,
     ...(color ? { color } : {}),
   };
 }
@@ -287,10 +297,8 @@ function syncDynamicClasses(state: GameState, rawClasses: unknown) {
     existing.color = schoolClass.color || existing.color || colorFromId(schoolClass.id);
     if (typeof schoolClass.sheetId === "number") existing.sheetId = schoolClass.sheetId;
     if (typeof schoolClass.slot === "number") existing.slot = schoolClass.slot;
-    if (schoolClass.version) {
-      existing.version = schoolClass.version;
-      existing.displayVersion = schoolClass.version;
-    }
+    existing.version = 1;
+    existing.displayVersion = 1;
     return existing;
   });
 
@@ -351,6 +359,24 @@ function applyAddPoints(
   return { team, actual };
 }
 
+function normalizeRegistrationItems(rawItems: unknown): RegistrationItem[] {
+  if (!Array.isArray(rawItems)) return [];
+  const seen = new Set<string>();
+  return rawItems
+    .map((raw: any) => {
+      const id = String(raw?.id || "").trim();
+      const label = String(raw?.label || "").trim();
+      const rawType = String(raw?.type || "points");
+      const type: RegistrationItem["type"] =
+        rawType === "yesno" || rawType === "range" ? rawType : "points";
+      const points = Math.max(0, Number.isFinite(Number(raw?.points)) ? Number(raw.points) : 0);
+      if (!id || !label || seen.has(id)) return null;
+      seen.add(id);
+      return { id, label, type, points };
+    })
+    .filter((item): item is RegistrationItem => Boolean(item));
+}
+
 const clients = new Set<any>();
 
 function broadcast(message: any) {
@@ -388,17 +414,26 @@ async function handleMessage(ws: any, msg: string) {
       break;
     }
 
+    case "syncRegItems": {
+      const items = normalizeRegistrationItems(data.items);
+      if (!items.length) break;
+
+      state.registrationItems = items;
+      state.registrationItemsUpdatedAt = String(data.updatedAt || new Date().toISOString());
+      addEvent(state, `⚙️ تم تحديث بنود التسجيل الرسمية (${items.length} بنود)`);
+      broadcastFullState();
+      break;
+    }
+
     case "submitStudentPoints": {
-      const { teamId, pts, studentName, teamName, version } = data;
+      const { teamId, pts, studentName, teamName } = data;
       const result = applyAddPoints(state, String(teamId || ""), Number(pts), teamName);
       if (!result) return;
 
       addEvent(state, `➕ إضافة ${result.actual} نقطة للفصل "${result.team.name}"`);
 
-      // رقم النسخة (1/2/3) يرسل مع الإعلان حتى يعرضه فقط جهاز DisplayPage
-      // الذي يعرض نفس نسخة فصل الطالب (3 أجهزة، كل جهاز بنسخة).
-      const teamVersion = result.team.version ?? result.team.displayVersion;
-      const announcedVersion = teamVersion || Number(version) || 0;
+      // النظام الحالي نسخة واحدة فقط.
+      const announcedVersion: DisplayVersion = 1;
 
       broadcast({
         type: "announcement",
@@ -504,15 +539,7 @@ async function handleMessage(ws: any, msg: string) {
     }
 
     case "addTeam": {
-      // توافق مع أدوات الإدارة القديمة. الفصول الرسمية ستأتي لاحقاً من syncClasses.
-      const { name, color } = data;
-      const id = `team_${Date.now()}`;
-      const team = createDynamicTeam(id, String(name || id), {
-        color: String(color || "").trim() || colorFromId(id),
-      });
-      state.teams.push(team);
-      addEvent(state, `🆕 تمت إضافة الفريق "${team.name}"`);
-      broadcastFullState();
+      // النظام ثابت على خمسة فصول رسمية؛ لا نسمح بإضافة فريق سادس من أدوات الإدارة القديمة.
       break;
     }
 
@@ -574,7 +601,12 @@ async function handleMessage(ws: any, msg: string) {
       // نحافظ على هوية واسم وslot/version لكل فصل ونصفر بيانات السباق فقط.
       state = {
         teams: state.teams
-          .filter((team) => !LEGACY_TEAM_IDS.has(team.id))
+          .filter((team) =>
+            !LEGACY_TEAM_IDS.has(team.id) &&
+            team.id.startsWith("class-") &&
+            Number(team.slot) >= 1 &&
+            Number(team.slot) <= ACTIVE_CLASS_COUNT
+          )
           .map((team) =>
             createDynamicTeam(team.id, team.name, {
               color: team.color || colorFromId(team.id),
