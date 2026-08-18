@@ -70,6 +70,8 @@ interface ClassSyncItem {
 
 const ACTIVE_CLASS_COUNT = 5;
 
+const MAX_BOARD_POSITION = 45;
+
 const DEFAULT_CONSTANTS = {
   POINTS_PER_STEP: 1500,
   COINS_PER_STEP: 10,
@@ -153,7 +155,7 @@ function normalizeSavedTeam(raw: any): Team | null {
 }
 
 function generateDefaultTiles(): Tile[] {
-  const tiles: Tile[] = Array.from({ length: 30 }, (_, i) => ({
+  const tiles: Tile[] = Array.from({ length: MAX_BOARD_POSITION + 1 }, (_, i) => ({
     id: i,
     type: "normal" as const,
   }));
@@ -460,7 +462,7 @@ async function handleMessage(ws: any, msg: string) {
       const numericSteps = Number(steps);
       if (!Number.isFinite(numericSteps)) return;
 
-      const newPos = Math.min(Math.max(team.position + numericSteps, 0), 33);
+      const newPos = Math.min(Math.max(team.position + numericSteps, 0), MAX_BOARD_POSITION);
       team.position = newPos;
       team.coins += Math.abs(newPos - oldPos) * DEFAULT_CONSTANTS.COINS_PER_STEP;
       addEvent(state, `🚢 تحريك "${team.name}" ${numericSteps} مربعات يدوياً`);

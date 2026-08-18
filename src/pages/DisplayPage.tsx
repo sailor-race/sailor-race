@@ -134,8 +134,9 @@ function formatHistoryDateLabel(dateValue: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
 
-const TOTAL_POSITIONS = 22;
-const ISLAND_INDICES = [0, 7, 14, 21];
+const SQUARES_PER_SEGMENT = 15;
+const TOTAL_POSITIONS = SQUARES_PER_SEGMENT * 3 + 1;
+const ISLAND_INDICES = [0, 15, 30, 45];
 const ISLAND_SIZES = [150, 140, 140, 170];
 
 const ISLANDS_POS: Position[] = [
@@ -178,10 +179,10 @@ function getPathPositions(): Position[] {
   const pos: Position[] = [];
   for (let seg = 0; seg < 3; seg++) {
     if (seg === 0) pos.push(ISLANDS_POS[0]);
-    for (let j = 1; j <= 7; j++)
+    for (let j = 1; j <= SQUARES_PER_SEGMENT; j++)
       pos.push(
         cubicBezier(
-          j / 7,
+          j / SQUARES_PER_SEGMENT,
           ISLANDS_POS[seg],
           SEGMENTS[seg].cp1,
           SEGMENTS[seg].cp2,
@@ -201,9 +202,9 @@ function getSvgPath(): string {
   }).join(" ");
 }
 
-// Each "square" on the path is worth POINTS_PER_SQUARE points:
-// 0 pts => square 0, 50 pts => square 1, 200 pts => square 4.
-const POINTS_PER_SQUARE = 50;
+// Each board interval is worth 100 points.
+// Islands are fixed at 0, 1500, 3000 and 4500 points.
+const POINTS_PER_SQUARE = 100;
 const POSITION_EPSILON = 0.0001;
 const MOVE_STEP_INDEX = 0.25; // ربع مربع لكل خطوة: حركة أدق على المنحنى
 const MOVE_STEP_MS = 300; // تقريباً 1.2 ثانية لكل مربع كامل: أبطأ قليلاً بدون مبالغة
@@ -279,11 +280,11 @@ function indexToExactPos(index: number, pathPositions: Position[]): Position {
   const maxIndex = pathPositions.length - 1;
   const clampedIndex = Math.max(0, Math.min(index, maxIndex));
 
-  // المسار مكوّن من 3 منحنيات، وكل منحنى فيه 7 خطوات بين جزيرة وجزيرة.
+  // المسار مكوّن من 3 منحنيات، وكل منحنى فيه 15 خطوة = 1500 نقطة بين كل جزيرتين.
   // بدلاً من خط مستقيم بين علامتين، نحسب موقع السفينة على نفس cubicBezier
   // المستخدم لرسم الخط الأصفر، لذلك 300 يقف فوق علامة 300 تماماً،
   // و700 يتبع المنحنى ولا يهبط تحته.
-  const squaresPerSegment = 7;
+  const squaresPerSegment = SQUARES_PER_SEGMENT;
   const seg = Math.min(
     Math.floor(clampedIndex / squaresPerSegment),
     SEGMENTS.length - 1,
@@ -2085,7 +2086,7 @@ export default function DisplayPage() {
         @keyframes ann-glow{0%,100%{text-shadow:0 0 20px currentColor,0 0 40px currentColor}50%{text-shadow:0 0 40px currentColor,0 0 80px currentColor}}
         @keyframes ann-stars{0%{opacity:0;transform:scale(0) rotate(0deg)}50%{opacity:1;transform:scale(1.2) rotate(180deg)}100%{opacity:0;transform:scale(0) rotate(360deg)}}
         @keyframes logo-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-8px) rotate(1deg)}}
-        @keyframes logo-glow{0%,100%{filter:drop-shadow(0 4px 12px rgba(0,150,130,0.4))}50%{filter:drop-shadow(0 8px 24px rgba(0,200,180,0.7))}}
+        @keyframes logo-glow{0%,100%{filter:drop-shadow(0 5px 10px rgba(0,0,0,0.30)) drop-shadow(0 0 8px rgba(45,212,191,0.42))}50%{filter:drop-shadow(0 7px 14px rgba(0,0,0,0.36)) drop-shadow(0 0 14px rgba(45,212,191,0.62))}}
         /* زر كرتوني: حدود سميكة + ظل صلب سفلي (تأثير 3D) + ضغطة نازلة واضحة */
         .smooth-btn {
           transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.16s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
@@ -2495,7 +2496,7 @@ export default function DisplayPage() {
             src={`data:image/png;base64,${ALANDALUS_LOGO_B64}`}
             alt="مدارس الأندلس"
             style={{
-              width: "clamp(120px,18vw,190px)",
+              width: "clamp(112px,17vw,178px)",
               height: "auto",
               objectFit: "contain",
             }}
