@@ -134,9 +134,9 @@ function formatHistoryDateLabel(dateValue: string): string {
   }).format(new Date(Date.UTC(year, month - 1, day, 12)));
 }
 
-const SQUARES_PER_SEGMENT = 15;
+const SQUARES_PER_SEGMENT = 6;
 const TOTAL_POSITIONS = SQUARES_PER_SEGMENT * 3 + 1;
-const ISLAND_INDICES = [0, 15, 30, 45];
+const ISLAND_INDICES = [0, 6, 12, 18];
 const ISLAND_SIZES = [150, 140, 140, 170];
 
 const ISLANDS_POS: Position[] = [
@@ -202,9 +202,9 @@ function getSvgPath(): string {
   }).join(" ");
 }
 
-// Each board interval is worth 100 points.
-// Islands are fixed at 0, 1500, 3000 and 4500 points.
-const POINTS_PER_SQUARE = 100;
+// Each board interval is worth 250 points.
+// Six intervals separate every two islands: 6 × 250 = 1500 points.
+const POINTS_PER_SQUARE = 250;
 const POSITION_EPSILON = 0.0001;
 const MOVE_STEP_INDEX = 0.25; // ربع مربع لكل خطوة: حركة أدق على المنحنى
 const MOVE_STEP_MS = 300; // تقريباً 1.2 ثانية لكل مربع كامل: أبطأ قليلاً بدون مبالغة
@@ -280,7 +280,7 @@ function indexToExactPos(index: number, pathPositions: Position[]): Position {
   const maxIndex = pathPositions.length - 1;
   const clampedIndex = Math.max(0, Math.min(index, maxIndex));
 
-  // المسار مكوّن من 3 منحنيات، وكل منحنى فيه 15 خطوة = 1500 نقطة بين كل جزيرتين.
+  // المسار مكوّن من 3 منحنيات، وكل منحنى فيه 6 خطوات × 250 = 1500 نقطة بين كل جزيرتين.
   // بدلاً من خط مستقيم بين علامتين، نحسب موقع السفينة على نفس cubicBezier
   // المستخدم لرسم الخط الأصفر، لذلك 300 يقف فوق علامة 300 تماماً،
   // و700 يتبع المنحنى ولا يهبط تحته.

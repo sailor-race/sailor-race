@@ -206,8 +206,8 @@ function safeNumber(value: unknown): number {
 }
 
 
-const POINTS_PER_SQUARE = 100;
-const TOTAL_POSITIONS = 46;
+const POINTS_PER_SQUARE = 250;
+const TOTAL_POSITIONS = 19;
 const POSITION_EPSILON = 0.0001;
 
 function formatPoints(value: number): string {

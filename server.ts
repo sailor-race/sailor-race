@@ -70,7 +70,7 @@ interface ClassSyncItem {
 
 const ACTIVE_CLASS_COUNT = 5;
 
-const MAX_BOARD_POSITION = 45;
+const MAX_BOARD_POSITION = 18;
 
 const DEFAULT_CONSTANTS = {
   POINTS_PER_STEP: 1500,
