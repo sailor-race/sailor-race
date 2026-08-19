@@ -67,7 +67,7 @@ interface RegistrationPayload {
   itemValues?: Record<string, any>;
 }
 
-type RegItemType = "points" | "yesno" | "range";
+type RegItemType = "points" | "yesno" | "range" | "rating";
 
 // بند تسجيل يحدده المعلم من الإعدادات ويتزامن على كل الأجهزة.
 interface RegItem {
@@ -75,15 +75,19 @@ interface RegItem {
   label: string;
   type: RegItemType;
   points: number;
+  /** خيارات النقاط لبند «إضافة نقاط». مثال: [10, 20, 35]. */
+  options?: number[];
 }
 
 // قيمة بند داخل نموذج التسجيل — كل نوع يستخدم الحقول المناسبة له.
 interface RegItemValue {
-  on: boolean;           // type=points: مفعّل؟
+  on: boolean;           // توافق مع النسخ القديمة لبند points
   value: boolean | null; // type=yesno: نعم/لا
   range: SurahRange;     // type=range: من/إلى
   absent: boolean;       // type=range: لم يسمع
-  score: number | null;  // type=range: النقاط المختارة لهذا الطالب (30/25/20) — null = نقاط البند الافتراضية
+  score: number | null;  // type=range: النقاط المختارة لهذا الطالب
+  selectedPoints: number | null; // type=points: اختيار واحد من الخيارات الرسمية
+  manualPoints: number | null;   // type=rating: المعلم يكتب النقاط وقت التسجيل
 }
 
 
@@ -556,7 +560,7 @@ const PICKER_SURAHS = SURAHS
 // الإدارة تحدد البنود (الاسم + النقاط + النوع) من إعدادات الصفحة،
 // وتتزامن على كل أجهزة المعلمين عبر Script Properties في Google Sheets.
 const DEFAULT_REG_ITEMS: RegItem[] = [
-  { id: "hudur", label: "الحضور", type: "points", points: 10 },
+  { id: "hudur", label: "الحضور", type: "points", points: 10, options: [10] },
   { id: "hifz", label: "الحفظ", type: "range", points: 30 },
   { id: "murajaa", label: "المراجعة", type: "range", points: 30 },
   { id: "haqiba", label: "إحضار الحقيبة", type: "yesno", points: 10 },
@@ -567,6 +571,7 @@ const REG_ITEMS_TYPE_LABELS: Record<RegItemType, string> = {
   points: "➕ إضافة نقاط",
   yesno: "✅ نعم / لا",
   range: "📖 سورة من وإلى",
+  rating: "✍️ تقييم",
 };
 // خيارات تقييم بند «سورة من وإلى» تُشتق من النقاط القصوى التي تحددها الإدارة.
 // 30 تبقى 30/25/20 كما في النظام السابق، وأي رقم آخر يحصل على 3 درجات متناسبة.
@@ -583,12 +588,36 @@ function regItemRangePointsOptions(maxPoints: number): number[] {
   ).sort((a, b) => b - a);
 }
 
+function normalizePointOptions(raw: unknown, fallbackPoints = 0): number[] {
+  const source = Array.isArray(raw) ? raw : [];
+  const cleaned = Array.from(
+    new Set(
+      source
+        .map((value) => Math.max(0, Math.round(safeNumber(value))))
+        .filter((value) => Number.isFinite(value)),
+    ),
+  );
+  if (cleaned.length) return cleaned;
+  return [Math.max(0, Math.round(safeNumber(fallbackPoints)))];
+}
+
+function regItemPointOptions(item: RegItem): number[] {
+  return normalizePointOptions(item.options, item.points);
+}
+
 function normalizeRegItem(item: any): RegItem {
+  const type: RegItemType =
+    item?.type === "yesno" || item?.type === "range" || item?.type === "rating"
+      ? item.type
+      : "points";
+  const points = Math.max(0, safeNumber(item?.points));
+  const options = type === "points" ? normalizePointOptions(item?.options, points) : undefined;
   return {
     id: String(item?.id || "").trim(),
     label: String(item?.label || "").trim(),
-    type: item?.type === "yesno" || item?.type === "range" ? item.type : "points",
-    points: Math.max(0, safeNumber(item?.points)),
+    type,
+    points: type === "points" ? (options?.[0] ?? points) : points,
+    ...(options ? { options } : {}),
   };
 }
 
@@ -633,6 +662,8 @@ const emptyRegItemValue = (): RegItemValue => ({
   range: emptySurahRange(),
   absent: false,
   score: null,
+  selectedPoints: null,
+  manualPoints: null,
 });
 
 // النقاط الفعلية لبند «سورة من وإلى»: التقييم المختار، وإلا نقاط البند الرسمية.
@@ -645,7 +676,17 @@ function regItemRangeScore(item: RegItem, value?: RegItemValue): number {
 // نقاط البند حسب قيمته الحالية.
 function regItemPoints(item: RegItem, value?: RegItemValue): number {
   if (!value) return 0;
-  if (item.type === "points") return value.on ? item.points : 0;
+  if (item.type === "points") {
+    if (typeof value.selectedPoints === "number" && Number.isFinite(value.selectedPoints)) {
+      return Math.max(0, value.selectedPoints);
+    }
+    return value.on ? item.points : 0; // توافق مع بيانات قديمة
+  }
+  if (item.type === "rating") {
+    return typeof value.manualPoints === "number" && Number.isFinite(value.manualPoints)
+      ? Math.max(0, value.manualPoints)
+      : 0;
+  }
   if (item.type === "yesno") return value.value === true ? item.points : 0;
   if (item.type === "range")
     return value.absent ? 0 : isSurahRangeComplete(value.range) ? regItemRangeScore(item, value) : 0;
@@ -655,7 +696,8 @@ function regItemPoints(item: RegItem, value?: RegItemValue): number {
 // هل للبند قيمة مختارة (حتى لو صفر نقطة)؟
 function regItemHasData(item: RegItem, value?: RegItemValue): boolean {
   if (!value) return false;
-  if (item.type === "points") return value.on;
+  if (item.type === "points") return value.selectedPoints !== null || value.on;
+  if (item.type === "rating") return value.manualPoints !== null;
   if (item.type === "yesno") return value.value !== null;
   if (item.type === "range")
     return value.absent || value.range.from.surahIndex !== null || value.range.to.surahIndex !== null;
@@ -676,8 +718,14 @@ function regItemSummaryText(
   value?: RegItemValue,
 ): { label: string; value: string } | null {
   if (!regItemHasData(item, value)) return null;
-  if (item.type === "points")
-    return value!.on ? { label: item.label, value: `+${item.points}` } : { label: item.label, value: "0" };
+  if (item.type === "points") {
+    const pts = regItemPoints(item, value);
+    return { label: item.label, value: `+${pts}` };
+  }
+  if (item.type === "rating") {
+    const pts = regItemPoints(item, value);
+    return { label: item.label, value: `+${pts}` };
+  }
   if (item.type === "yesno")
     return value!.value === true
       ? { label: item.label, value: `+${item.points}` }
@@ -1116,10 +1164,38 @@ export default function AdminPage() {
   const addItemDraft = () =>
     setItemsDraft((prev) => [
       ...prev,
-      { id: `reg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, label: "", type: "points", points: 10 },
+      { id: `reg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, label: "", type: "points", points: 10, options: [10] },
     ]);
   const updateItemDraft = (index: number, patch: Partial<RegItem>) =>
     setItemsDraft((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
+  const updatePointOptionDraft = (itemIndex: number, optionIndex: number, nextValue: number) =>
+    setItemsDraft((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const options = [...regItemPointOptions(item)];
+        options[optionIndex] = Math.max(0, Math.round(safeNumber(nextValue)));
+        return { ...item, options, points: options[0] ?? 0 };
+      }),
+    );
+  const addPointOptionDraft = (itemIndex: number) =>
+    setItemsDraft((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const options = [...regItemPointOptions(item)];
+        const last = options[options.length - 1] ?? 0;
+        options.push(last + 10);
+        return { ...item, options, points: options[0] ?? 0 };
+      }),
+    );
+  const removePointOptionDraft = (itemIndex: number, optionIndex: number) =>
+    setItemsDraft((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        const options = regItemPointOptions(item).filter((_, idx) => idx !== optionIndex);
+        const safeOptions = options.length ? options : [0];
+        return { ...item, options: safeOptions, points: safeOptions[0] ?? 0 };
+      }),
+    );
   const moveItemDraft = (index: number, delta: number) =>
     setItemsDraft((prev) => {
       const next = [...prev];
@@ -1137,9 +1213,18 @@ export default function AdminPage() {
 
   const saveItemsDraft = async () => {
     if (itemsSaving) return;
-    const clean = itemsDraft.filter((item) => item.label.trim() !== "");
+    const clean = itemsDraft
+      .filter((item) => item.label.trim() !== "")
+      .map((item) => normalizeRegItem(item));
     if (clean.length === 0) {
       showToast("❌ أضف بنداً واحداً على الأقل واكتب اسمه", false);
+      return;
+    }
+    const invalidPointsItem = clean.find(
+      (item) => item.type === "points" && regItemPointOptions(item).length === 0,
+    );
+    if (invalidPointsItem) {
+      showToast(`❌ بند ${invalidPointsItem.label}: أضف خيار نقاط واحداً على الأقل`, false);
       return;
     }
     if (new Set(clean.map((item) => item.id)).size !== clean.length) {
@@ -1271,7 +1356,9 @@ export default function AdminPage() {
       const v = itemValues[item.id];
       if (!v) return;
       if (item.type === "points") {
-        itemValuesPayload[item.id] = v.on;
+        itemValuesPayload[item.id] = v.selectedPoints ?? (v.on ? item.points : null);
+      } else if (item.type === "rating") {
+        itemValuesPayload[item.id] = v.manualPoints;
       } else if (item.type === "yesno") {
         itemValuesPayload[item.id] = v.value;
       } else {
@@ -1451,7 +1538,8 @@ export default function AdminPage() {
         regItems.forEach((item) => {
           const v = itemValues[item.id];
           if (!v) return;
-          if (item.type === "points" && v.on) parts.push(`${item.label} +${item.points}`);
+          if (item.type === "points" && regItemHasData(item, v)) parts.push(`${item.label} +${regItemPoints(item, v)}`);
+          else if (item.type === "rating" && v.manualPoints !== null) parts.push(`${item.label} +${regItemPoints(item, v)}`);
           else if (item.type === "yesno" && v.value === true) parts.push(`${item.label} ✔`);
           else if (item.type === "range" && v.absent) parts.push(`${item.label}: لم يسمع`);
           else if (item.type === "range" && isSurahRangeComplete(v.range)) parts.push(`${item.label} +${regItemRangeScore(item, v)}`);
@@ -1991,8 +2079,8 @@ export default function AdminPage() {
               }}
             >
               حدّد بنود التسجيل ونقاطها — تصبح رسمية وتتزامن على جميع أجهزة المعلمين خلال ثوانٍ.
-              <br />النوع: «➕ إضافة نقاط» مثل الحضور، «✅ نعم/لا» مثل الحقيبة،
-              «📖 سورة من وإلى» مثل الحفظ.
+              <br />النوع: «➕ إضافة نقاط» لاختيارات نقاط تحددها أنت، «✅ نعم/لا»،
+              «📖 سورة من وإلى»، و«✍️ تقييم» ليكتب المعلم النقاط بنفسه وقت التسجيل.
             </div>
 
             <div
@@ -2022,30 +2110,49 @@ export default function AdminPage() {
                       placeholder="اسم البند (مثال: الحضور)"
                       style={{ ...S.input, marginBottom: 0, flex: 1, fontSize: 14, padding: "10px 12px" }}
                     />
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={String(item.points)}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => {
-                        const digits = e.target.value.replace(/[^0-9]/g, "");
-                        updateItemDraft(index, { points: digits === "" ? 0 : Number(digits) });
-                      }}
-                      placeholder="النقاط"
-                      title="اكتب أي عدد نقاط لهذا البند"
-                      style={{
-                        ...S.input,
-                        marginBottom: 0,
-                        width: 86,
-                        fontSize: 14,
-                        padding: "10px 8px",
-                        textAlign: "center",
-                      }}
-                    />
+                    {item.type !== "points" && item.type !== "rating" && (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String(item.points)}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/[^0-9]/g, "");
+                          updateItemDraft(index, { points: digits === "" ? 0 : Number(digits) });
+                        }}
+                        placeholder="النقاط"
+                        title="اكتب أي عدد نقاط لهذا البند"
+                        style={{
+                          ...S.input,
+                          marginBottom: 0,
+                          width: 86,
+                          fontSize: 14,
+                          padding: "10px 8px",
+                          textAlign: "center",
+                        }}
+                      />
+                    )}
+                    {item.type === "rating" && (
+                      <div
+                        style={{
+                          width: 100,
+                          padding: "10px 6px",
+                          borderRadius: 12,
+                          background: "rgba(168,85,247,0.12)",
+                          border: "1px solid rgba(192,132,252,0.35)",
+                          color: "#d8b4fe",
+                          textAlign: "center",
+                          fontSize: 11,
+                          fontWeight: 800,
+                        }}
+                      >
+                        يكتبها المعلم
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {(["points", "yesno", "range"] as const).map((type) => (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    {(["points", "yesno", "range", "rating"] as const).map((type) => (
                       <button
                         key={type}
                         type="button"
@@ -2053,11 +2160,15 @@ export default function AdminPage() {
                         onClick={() =>
                           updateItemDraft(index, {
                             type,
-                            points: item.points,
+                            points: type === "rating" ? 0 : item.points,
+                            ...(type === "points"
+                              ? { options: regItemPointOptions(item) }
+                              : {}),
                           })
                         }
                         style={{
-                          flex: 1,
+                          flex: "1 1 calc(50% - 6px)",
+                          minWidth: 0,
                           padding: "8px 4px",
                           borderRadius: 10,
                           fontSize: 11,
@@ -2102,6 +2213,91 @@ export default function AdminPage() {
                       🗑
                     </button>
                   </div>
+
+                  {item.type === "points" && (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        padding: 10,
+                        borderRadius: 12,
+                        background: "rgba(56,189,248,0.06)",
+                        border: "1px solid rgba(56,189,248,0.18)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span style={{ color: "#bae6fd", fontSize: 12, fontWeight: 800 }}>
+                          اختيارات النقاط: {regItemPointOptions(item).length}
+                        </span>
+                        <button
+                          type="button"
+                          className="smooth-btn"
+                          onClick={() => addPointOptionDraft(index)}
+                          style={{ ...S.clearBtn, padding: "7px 10px", color: "#7dd3fc", fontSize: 11 }}
+                        >
+                          ＋ إضافة خيار
+                        </button>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                        {regItemPointOptions(item).map((option, optionIndex) => (
+                          <div
+                            key={`${item.id}-option-${optionIndex}`}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 5,
+                              flex: "1 1 118px",
+                              minWidth: 0,
+                            }}
+                          >
+                            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, whiteSpace: "nowrap" }}>
+                              خيار {optionIndex + 1}
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={String(option)}
+                              onFocus={(e) => e.currentTarget.select()}
+                              onChange={(e) => {
+                                const digits = e.target.value.replace(/[^0-9]/g, "");
+                                updatePointOptionDraft(index, optionIndex, digits === "" ? 0 : Number(digits));
+                              }}
+                              style={{
+                                ...S.input,
+                                marginBottom: 0,
+                                minWidth: 0,
+                                flex: 1,
+                                padding: "8px 6px",
+                                textAlign: "center",
+                                fontSize: 13,
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="smooth-btn"
+                              onClick={() => removePointOptionDraft(index, optionIndex)}
+                              disabled={regItemPointOptions(item).length <= 1}
+                              style={{
+                                ...S.clearBtn,
+                                padding: "7px 8px",
+                                color: regItemPointOptions(item).length <= 1 ? "rgba(255,255,255,0.2)" : "#f87171",
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {itemsDraft.length === 0 && (
@@ -2787,56 +2983,103 @@ export default function AdminPage() {
             {regItems.map((item) => {
               const v = itemValues[item.id] ?? emptyRegItemValue();
 
-              // ── بند «إضافة نقاط» (مثل الحضور) ──
+              // ── بند «إضافة نقاط»: المعلم يختار من الخيارات التي اعتمدتها الإدارة ──
               if (item.type === "points") {
+                const options = regItemPointOptions(item);
+                return (
+                  <div key={item.id} style={{ marginBottom: 16 }}>
+                    <label style={S.label}>
+                      ➕ {item.label}
+                      {v.selectedPoints !== null && <span style={S.badge}>+{v.selectedPoints}</span>}
+                    </label>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {options.map((opt, optionIndex) => {
+                        const active = v.selectedPoints === opt || (v.selectedPoints === null && v.on && item.points === opt);
+                        return (
+                          <button
+                            key={`${item.id}-register-option-${optionIndex}-${opt}`}
+                            type="button"
+                            className="smooth-btn"
+                            onClick={() =>
+                              setItemValues((prev) => ({
+                                ...prev,
+                                [item.id]: {
+                                  ...(prev[item.id] ?? emptyRegItemValue()),
+                                  on: false,
+                                  selectedPoints: active ? null : opt,
+                                },
+                              }))
+                            }
+                            style={{
+                              flex: "1 1 82px",
+                              minWidth: 72,
+                              padding: "11px 8px",
+                              borderRadius: 12,
+                              cursor: "pointer",
+                              fontFamily: "'Tajawal',sans-serif",
+                              fontSize: 14,
+                              fontWeight: 900,
+                              background: active
+                                ? "linear-gradient(180deg,#22c55e,#15803d)"
+                                : "rgba(255,255,255,0.07)",
+                              color: active ? "#fff" : "rgba(255,255,255,0.6)",
+                              border: `1.5px solid ${active ? "#4ade80" : "rgba(255,255,255,0.12)"}`,
+                              boxShadow: active ? "0 4px 16px rgba(34,197,94,0.35)" : "none",
+                            }}
+                          >
+                            {opt} نقطة
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              // ── بند «تقييم»: المعلم يكتب النقاط بنفسه في كل تسجيل ──
+              if (item.type === "rating") {
                 return (
                   <div
                     key={item.id}
                     style={{
-                      background: v.on ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.04)",
-                      border: `1.5px solid ${v.on ? "#22c55e" : "rgba(255,255,255,0.1)"}`,
+                      background: v.manualPoints !== null ? "rgba(168,85,247,0.10)" : "rgba(255,255,255,0.04)",
+                      border: `1.5px solid ${v.manualPoints !== null ? "#a855f7" : "rgba(255,255,255,0.1)"}`,
                       borderRadius: 14,
                       padding: "14px 16px",
                       marginBottom: 16,
-                      transition: "all 0.2s",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>✋ {item.label}</span>
-                        <span style={S.hint}>(+{item.points} نقاط)</span>
-                      </div>
-                      <button
-                        onClick={() =>
-                          setItemValues((prev) => ({
-                            ...prev,
-                            [item.id]: {
-                              ...(prev[item.id] ?? emptyRegItemValue()),
-                              on: !v.on,
-                            },
-                          }))
-                        }
-                        className="smooth-btn"
-                        style={{
-                          padding: "8px 22px",
-                          borderRadius: 999,
-                          border: "none",
-                          cursor: "pointer",
-                          fontFamily: "'Tajawal',sans-serif",
-                          fontSize: 13,
-                          fontWeight: 800,
-                          background: v.on
-                            ? "linear-gradient(180deg,#22c55e,#15803d)"
-                            : "rgba(255,255,255,0.1)",
-                          color: v.on ? "#fff" : "rgba(255,255,255,0.5)",
-                          boxShadow: v.on
-                            ? "0 4px 16px #22c55e55, inset 0 1px 0 rgba(255,255,255,0.3)"
-                            : "none",
-                        }}
-                      >
-                        {v.on ? `✔ ${item.label}` : `${item.label}؟`}
-                      </button>
-                    </div>
+                    <label style={{ ...S.label, marginBottom: 8 }}>
+                      ✍️ {item.label}
+                      <span style={S.hint}>(اكتب النقاط لهذا الطالب)</span>
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={v.manualPoints === null ? "" : String(v.manualPoints)}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/[^0-9]/g, "");
+                        setItemValues((prev) => ({
+                          ...prev,
+                          [item.id]: {
+                            ...(prev[item.id] ?? emptyRegItemValue()),
+                            manualPoints: digits === "" ? null : Number(digits),
+                          },
+                        }));
+                      }}
+                      placeholder="مثال: 20"
+                      style={{
+                        ...S.input,
+                        marginBottom: 0,
+                        width: "100%",
+                        boxSizing: "border-box",
+                        textAlign: "center",
+                        fontSize: 18,
+                        fontWeight: 900,
+                        padding: "12px",
+                      }}
+                    />
                   </div>
                 );
               }
